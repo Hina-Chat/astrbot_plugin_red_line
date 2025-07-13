@@ -1,0 +1,5 @@
+name: Red Line
+desc: 偵測 LLM 回應中的關鍵字，並對頻繁觸發的使用者進行軟性封禁。
+version: 1.0.0
+author: Masgtic, Gemini 2.5 Pro
+repo: https://github.com/Hina-Chat/astrbot_plugin_red_line

@@ -1,0 +1,50 @@
+{
+    "general": {
+        "description": "通用設置",
+        "type": "object",
+        "items": {
+            "keywords": {
+                "description": "偵測關鍵字",
+                "type": "list",
+                "default": [],
+                "hint": "設定一組關鍵字。當LLM的回應包含其中任何一個時，將會對用戶進行計數。不區分大小寫。"
+            },
+            "threshold": {
+                "description": "觸發閾值",
+                "type": "int",
+                "default": 3,
+                "hint": "用戶觸發關鍵字的次數達到此數值後，其後續消息將開始被機率性攔截。"
+            },
+            "probability": {
+                "description": "攔截機率",
+                "type": "float",
+                "default": 0.5,
+                "hint": "用戶觸發次數超過閾值後，每條消息被攔截的機率。請輸入0到1之間的小數，例如0.5代表50%。"
+            },
+            "release_hours": {
+                "description": "釋放時間（小時）",
+                "type": "float",
+                "default": 6.0,
+                "hint": "從用戶最後一次觸發關鍵字開始計算，經過多少小時後，其違規計數會被自動清零。"
+            },
+            "reset_on_release": {
+                "description": "釋放時自動重置對話",
+                "type": "bool",
+                "default": true,
+                "hint": "僅當用戶因冷卻期滿而被清零計數時，是否要自動重置其對話上下文。此操作現在透過直接呼叫API完成，而非發送指令。"
+            },
+            "data_file": {
+                "description": "數據檔名",
+                "type": "string",
+                "default": "red_line_data.json",
+                "hint": "用於保存用戶觸發次數的數據文件名。此文件將存儲在插件的數據目錄中。"
+            },
+            "whitelist": {
+                "description": "白名單用戶ID",
+                "type": "list",
+                "default": [],
+                "hint": "此列表中的用戶ID將完全豁免紅線插件的所有偵測和攔截功能。請填寫用戶的唯一ID。"
+            }
+        }
+    }
+}
