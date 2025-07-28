@@ -9,10 +9,10 @@ from typing import Dict
 
 import aiofiles
 
-from astrbot.api.event import AstrMessageEvent, MessageChain, filter
+from astrbot.api.event import filter, AstrMessageEvent, MessageChain
 from astrbot.api.event.filter import EventMessageType
 from astrbot.api.message_components import Plain
-from astrbot.api.provider import LLMResponse
+from astrbot.core.provider.entities import LLMResponse
 from astrbot.api import logger
 from astrbot.api.star import Context, Star, StarTools
 
@@ -85,6 +85,67 @@ class RedLine(Star):
     async def terminate(self):
         logger.info("RedLine plugin is terminating, saving data...")
         await self._save_user_data()
+
+    @filter.on_decorating_result(
+        priority=12
+    )  # 優先級高於 immersive_error(10)，確保先計分
+    async def on_word_limit_violation(self, event: AstrMessageEvent, *args, **kwargs):
+        """在結果裝飾階段，監聽由 word_limit 附加的違規報告。"""
+        if getattr(event, "word_limit_violation", False):
+            user_id = str(event.get_sender_id())
+            if user_id in self.whitelist:
+                return
+
+            logger.info(f"RedLine: 檢測到來自 {user_id} 的字數超限違規，準備計分。")
+            async with self.user_locks[user_id]:
+                user_record = self.user_data.get(
+                    user_id, {"count": 0, "last_triggered": 0}
+                )
+                user_record["count"] += 1  # 字數超限固定計 1 次
+                user_record["last_triggered"] = int(time.time())
+                user_record["offending_session_id"] = event.get_session_id()
+                self.user_data[user_id] = user_record
+                await self._save_user_data()
+                logger.info(
+                    f"使用者 {user_id} 因字數超限而計分。新計數: {user_record['count']}"
+                )
+
+    @filter.on_decorating_result(priority=11)
+    async def on_content_safety_violation(
+        self, event: AstrMessageEvent, *args, **kwargs
+    ):
+        """在結果裝飾階段，監聽由核心內容安全模組返回的違規報告。"""
+        result = event.get_result()
+        if not result or not result.message:
+            return
+
+        reply_text = "".join(
+            segment.text for segment in result.chain if isinstance(segment, Plain)
+        ).strip()
+
+        # 這是 AstrBot 核心內容安全模組返回的固定訊息
+        profanity_message = "你的消息或者大模型的响应中包含不适当的内容，已被屏蔽。"
+
+        if reply_text == profanity_message:
+            user_id = str(event.get_sender_id())
+            if user_id in self.whitelist:
+                return
+
+            logger.info(
+                f"RedLine: 檢測到來自 {user_id} 的內容安全違規（違禁詞），準備計分。"
+            )
+            async with self.user_locks[user_id]:
+                user_record = self.user_data.get(
+                    user_id, {"count": 0, "last_triggered": 0}
+                )
+                user_record["count"] += 1  # 違禁詞固定計 1 次
+                user_record["last_triggered"] = int(time.time())
+                user_record["offending_session_id"] = event.get_session_id()
+                self.user_data[user_id] = user_record
+                await self._save_user_data()
+                logger.info(
+                    f"使用者 {user_id} 因觸發違禁詞而計分。新計數: {user_record['count']}"
+                )
 
     @filter.on_llm_response()
     async def on_llm_response(self, event: AstrMessageEvent, response: LLMResponse):
